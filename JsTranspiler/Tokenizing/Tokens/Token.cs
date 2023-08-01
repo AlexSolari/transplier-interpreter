@@ -6,13 +6,13 @@ using System.Threading.Tasks;
 
 namespace JsTranspiler.Tokenizing.Tokens
 {
-    public class Token
+    public class Token<TType> : IToken
     {
         public TokenType Type { get; set; }
 
-        public string Value { get; set; }
+        public TType Value { get; set; }
 
-        public Token(TokenType type, string value = "")
+        public Token(TokenType type, TType value)
         {
             Type = type;
             Value = value;
@@ -20,15 +20,32 @@ namespace JsTranspiler.Tokenizing.Tokens
 
         public override string ToString()
         {
-            return $"{nameof(Token)} {Type.ToString()} - {Value}";
+            return $"{Type} - {Value}";
         }
 
-        public static Token Method
+        public virtual TType GetValue()
         {
-            get
+            return Value;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (obj is Token<TType> otherToken)
             {
-                return new Token(TokenType.Definition, "function");
+                return otherToken.Type == Type
+                    && otherToken.Value.Equals(Value);
             }
+
+            return base.Equals(obj);
+        }
+
+        public override int GetHashCode()
+        {
+            var hash = 7;
+            hash = hash * 23 + Type.GetHashCode();
+            hash = hash * 23 + Value.GetHashCode();
+
+            return hash;
         }
     }
 

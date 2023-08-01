@@ -1,8 +1,9 @@
 ﻿using System.Diagnostics;
+using JsTranspiler.Interpreter;
 using JsTranspiler.Parsing;
 using JsTranspiler.Tokenizing;
 
-var path = "D:\\repos\\Transpiler\\test\\1.js";//Console.ReadLine();
+var path = ".\\TestData\\2.js";//Console.ReadLine();
 var tokenizer = new Tokenizer();
 
 var data = File.ReadAllText(path);
@@ -18,6 +19,12 @@ var expressions = parser.Parse();
 parserStopwatch.Stop();
 Console.WriteLine($"Parsing done. Time elaplsed: {parserStopwatch.ElapsedMilliseconds}ms");
 
-var foo = expressions.Reverse().ToList();
-Printer.Print(foo);
+var instructions = expressions.Reverse().ToList();
+
+var interpreterStopwatch = Stopwatch.StartNew();
+var interpreter = new Interpreter();
+var result = interpreter.Execute(instructions, interpreter.Global);
+interpreterStopwatch.Stop();
+Console.WriteLine($"Executing done. Time elaplsed: {interpreterStopwatch.ElapsedMilliseconds}ms");
+
 Console.ReadKey();

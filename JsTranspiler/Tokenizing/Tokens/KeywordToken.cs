@@ -1,14 +1,15 @@
 ﻿namespace JsTranspiler.Tokenizing.Tokens
 {
-    public class KeywordToken : Token
+    public class KeywordToken : Token<Keyword>
     {
-        public Keyword Keyword { get; set; }
-
-        public KeywordToken(TokenType type, string value = "") : base(type, value)
+        public KeywordToken(string value = "") : base(TokenType.Keyword, GetKeyword(value))
         {
+        }
+
+        public static Keyword GetKeyword(string value){
             Enum.TryParse(value, ignoreCase: true, out Keyword keyword);
 
-            Keyword = keyword;
+            return keyword;
         }
     }
 

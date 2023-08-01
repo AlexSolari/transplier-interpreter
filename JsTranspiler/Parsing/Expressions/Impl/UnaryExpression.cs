@@ -2,12 +2,13 @@
 
 namespace JsTranspiler.Parsing.Expressions.Impl
 {
-    public class UnaryExpression : ITokenExpression
+    public class UnaryExpression<TToken> : ITokenExpression
+        where TToken : IToken
     {
-        ITokenExpression Arg1 { get; set; }
-        Token Operator { get; set; }
+        public ITokenExpression Arg1 { get; set; }
+        public TToken Operator { get; set; }
 
-        public UnaryExpression(ITokenExpression arg1, Token @operator)
+        public UnaryExpression(ITokenExpression arg1, TToken @operator)
         {
             Arg1 = arg1;
             Operator = @operator;
@@ -15,7 +16,7 @@ namespace JsTranspiler.Parsing.Expressions.Impl
 
         public override string ToString()
         {
-            return $"{Operator.Value} {Arg1}\n";
+            return $"{Operator} {Arg1}\n";
         }
     }
 }

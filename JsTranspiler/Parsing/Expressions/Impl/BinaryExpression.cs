@@ -2,13 +2,14 @@
 
 namespace JsTranspiler.Parsing.Expressions.Impl
 {
-    public class BinaryExpression : ITokenExpression
+    public class BinaryExpression<TToken> : ITokenExpression
+        where TToken : IToken
     {
-        ITokenExpression Arg1 { get; set; }
-        ITokenExpression Arg2 { get; set; }
-        Token Operator { get; set; }
+        public ITokenExpression Arg1 { get; set; }
+        public ITokenExpression Arg2 { get; set; }
+        public TToken Operator { get; set; }
 
-        public BinaryExpression(ITokenExpression arg1, ITokenExpression arg2, Token @operator)
+        public BinaryExpression(ITokenExpression arg1, ITokenExpression arg2, TToken @operator)
         {
             Arg1 = arg1;
             Arg2 = arg2;
@@ -17,7 +18,7 @@ namespace JsTranspiler.Parsing.Expressions.Impl
 
         public override string ToString()
         {
-            return $"{Arg1} {Operator.Value} {Arg2}\n";
+            return $"{Arg1} {Operator} {Arg2}\n";
         }
     }
 }

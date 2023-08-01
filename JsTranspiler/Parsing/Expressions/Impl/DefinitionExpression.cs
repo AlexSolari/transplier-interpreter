@@ -4,11 +4,11 @@ namespace JsTranspiler.Parsing.Expressions.Impl
 {
     public class DefinitionExpression : ITokenExpression
     {
-        protected Token Definition { get; set; }
-        protected Token Identifier { get; set; }
-        protected ITokenExpressionContainer Value { get; set; }
+        public DefinitionToken Definition { get; set; }
+        public IdentifierToken Identifier { get; set; }
+        public ITokenExpressionContainer Value { get; set; }
 
-        public DefinitionExpression(Token definition, Token identifier, ITokenExpressionContainer value)
+        public DefinitionExpression(DefinitionToken definition, IdentifierToken identifier, ITokenExpressionContainer value)
         {
             Definition = definition;
             Identifier = identifier;
@@ -17,7 +17,7 @@ namespace JsTranspiler.Parsing.Expressions.Impl
 
         public override string ToString()
         {
-            return $"{Definition.Value} {Identifier.Value} {Value}\n";
+            return $"{Definition} {Identifier} {Value}\n";
         }
     }
 }

@@ -2,14 +2,15 @@
 
 namespace JsTranspiler.Parsing.Expressions.Impl
 {
-    public class TernaryExpression : ITokenExpression
+    public class TernaryExpression<TToken> : ITokenExpression
+        where TToken : IToken
     {
         ITokenExpression Arg1 { get; set; }
         ITokenExpression Arg2 { get; set; }
         ITokenExpression Arg3 { get; set; }
-        Token Operator { get; set; }
+        TToken Operator { get; set; }
 
-        public TernaryExpression(ITokenExpression arg1, ITokenExpression arg2, ITokenExpression arg3, Token @operator)
+        public TernaryExpression(ITokenExpression arg1, ITokenExpression arg2, ITokenExpression arg3, TToken @operator)
         {
             Arg1 = arg1;
             Arg2 = arg2;
@@ -19,7 +20,7 @@ namespace JsTranspiler.Parsing.Expressions.Impl
 
         public override string ToString()
         {
-            return $"{Arg1} {Operator.Value} {Arg2} {Arg3}\n";
+            return $"{Arg1} {Operator} {Arg2} {Arg3}\n";
         }
     }
 }

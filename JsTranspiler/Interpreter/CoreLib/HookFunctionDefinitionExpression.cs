@@ -2,17 +2,20 @@
 
 namespace JsTranspiler.Parsing.Expressions.Impl
 {
-    public class FunctionDefinitionExpression : DefinitionExpression
+    public class HookFunctionDefinitionExpression : DefinitionExpression
     {
         public ITokenExpressionContainer Arguments { get; set; }
 
-        public FunctionDefinitionExpression(DefinitionToken definition,
+        public Action<string> Hook { get; set; }
+
+        public HookFunctionDefinitionExpression(DefinitionToken definition,
             IdentifierToken identifier,
-            ITokenExpressionContainer value,
+            Action<string> value,
             ITokenExpressionContainer arguments)
-        : base(definition, identifier, value)
+        : base(definition, identifier, null)
         {
             Arguments = arguments;
+            Hook = value;
         }
 
         public override string ToString()

@@ -20,16 +20,16 @@ namespace JsTranspiler.Parsing
 			[TokenType.LeftPar] = TokenType.RightPar,
 		};
 
-		List<Token> tokens;
+		List<IToken> tokens;
 		public int Index { get; set; } = 0;
-		public Token Current => tokens[Index];
-		public Token? Next => Index + 1 < tokens.Count
+		public IToken Current => tokens[Index];
+		public IToken? Next => Index + 1 < tokens.Count
 			? tokens[Index + 1]
 			: null;
 
 		public ExpressionStack Expressions { get; set; } = new ExpressionStack();
 
-		public Parser(IEnumerable<Token> tokens)
+		public Parser(IEnumerable<IToken> tokens)
 		{
 			this.tokens = tokens.ToList();
 		}
@@ -79,12 +79,20 @@ namespace JsTranspiler.Parsing
 		{
 			if (Current is not KeywordToken)
 			{
-				return new SingleTokenExpression(Current, SingleTokenExpressionType.Constant);
+				switch (Current.Type)
+				{
+					case TokenType.Number:
+                        return new SingleTokenExpression<NumberToken>(Current as NumberToken, SingleTokenExpressionType.Constant);
+                    case TokenType.StringData:
+                        return new SingleTokenExpression<Token<string>>(Current as Token<string>, SingleTokenExpressionType.Constant);
+                    default:
+						throw new InvalidDataException($"Invalid token type {Current.Type}");
+				}
 			}
 
 			var keywordToken = Current as KeywordToken;
 
-			switch (keywordToken.Keyword)
+			switch (keywordToken.Value)
 			{
 				case Keyword.Return:
 				case Keyword.Throw:
@@ -93,10 +101,21 @@ namespace JsTranspiler.Parsing
 				case Keyword.InstanceOf:
 				case Keyword.New:
 					Advance();
-					var returnValue = ParseNextExpression(frame);
-					var returnKeywordArgument = new GroupExpression(new[] { returnValue ?? new EOLExpression() });
+					var exps = new ExpressionStack();
+					while (Current?.Type != TokenType.EOL)
+					{
+						var exp = ParseNextExpression(exps);
+						exps.Push(exp);
 
-					return new UnaryExpression(returnKeywordArgument, keywordToken);
+						if (Current?.Type != TokenType.EOL)
+						{
+							Advance();
+						}
+					}
+					var normalizedContent = exps.Reverse().ToList();
+					var returnKeywordArgument = new GroupExpression(normalizedContent);
+
+					return new UnaryExpression<KeywordToken>(returnKeywordArgument, keywordToken);
 				case Keyword.If:
 					ITokenExpression result;
 
@@ -105,19 +124,19 @@ namespace JsTranspiler.Parsing
 					Advance();
 					var blockValue = ParseNextExpression(frame);
 
-					result = new BinaryExpression(conditionValue, blockValue, keywordToken);
+					result = new BinaryExpression<KeywordToken>(conditionValue, blockValue, keywordToken);
 
 					AdvanceIfEOL();
 
 					while (Next is KeywordToken nextKeyword
-						&& nextKeyword.Keyword == Keyword.Else)
+						&& nextKeyword.Value == Keyword.Else)
 					{
 						Advance();
 						var elseKeyword = ParseNextExpression(frame);
 						Advance();
 						var elseblockValue = ParseNextExpression(frame);
 
-						result = new BinaryExpression(result, elseblockValue, nextKeyword);
+						result = new BinaryExpression<KeywordToken>(result, elseblockValue, nextKeyword);
 
 						AdvanceIfEOL();
 					}
@@ -130,14 +149,14 @@ namespace JsTranspiler.Parsing
 					var switchBody = ParseNextExpression(frame);
 					Advance(); // to skip }
 
-					return new BinaryExpression(switchOn, switchBody, keywordToken);
+					return new BinaryExpression<KeywordToken>(switchOn, switchBody, keywordToken);
 				case Keyword.Case:
 				case Keyword.Default:
 					var cases = new List<ITokenExpression>();
 
 					var localFrame = new ExpressionStack();
 					while (Current is KeywordToken kTok
-						&& kTok.Keyword == Keyword.Case)
+						&& kTok.Value == Keyword.Case)
 					{
 						Advance();
 						var caseOn = ParseNextExpression(frame);
@@ -147,7 +166,7 @@ namespace JsTranspiler.Parsing
 					}
 
 					if (Current is KeywordToken defKTok
-						&& defKTok.Keyword == Keyword.Default)
+						&& defKTok.Value == Keyword.Default)
 					{
 						Advance();
 						Advance(); // to skip :
@@ -159,7 +178,7 @@ namespace JsTranspiler.Parsing
 						localFrame.Push(expr);
 
 						if (Current is KeywordToken kTok
-							&& kTok.Keyword == Keyword.Break)
+							&& kTok.Value == Keyword.Break)
 						{
 							break;
 						}
@@ -168,8 +187,8 @@ namespace JsTranspiler.Parsing
 					}
 
 
-					var normalizedContent = localFrame.Reverse().ToList();
-					return new BinaryExpression(
+					normalizedContent = localFrame.Reverse().ToList();
+					return new BinaryExpression<KeywordToken>(
 						new GroupExpression(cases),
 						new BlockExpression(normalizedContent),
 						keywordToken);
@@ -197,7 +216,7 @@ namespace JsTranspiler.Parsing
 				case Keyword.While:
 				case Keyword.With:
 				default:
-					return new SingleTokenExpression(Current, SingleTokenExpressionType.Keyword);
+					return new SingleTokenExpression<KeywordToken>(keywordToken, SingleTokenExpressionType.Keyword);
 			};
 
 			void AdvanceIfEOL()
@@ -208,7 +227,7 @@ namespace JsTranspiler.Parsing
 
 				if (Next?.Type == TokenType.EOL
 					&& afterNext is KeywordToken afterNextKeyword
-					&& afterNextKeyword.Keyword == Keyword.Else)
+					&& afterNextKeyword.Value == Keyword.Else)
 				{
 					Advance();
 				}
@@ -223,7 +242,7 @@ namespace JsTranspiler.Parsing
 			while (!(Current.Type == TokenType.EOL || Current.Type == TokenType.EOF))
 			{
 
-				if (Current.Type == TokenType.Operator && (Current as OperatorToken)?.Operator == Operator.Access)
+				if (Current is OperatorToken opTok && opTok.Value == Operator.Access)
 				{
 					var @operator = ParseOperator(frame);
 					frame.Push(@operator);
@@ -233,14 +252,14 @@ namespace JsTranspiler.Parsing
 					var indexer = ParseConsumable(frame);
 					frame.Push(indexer);
 				}
-				else if (Current.Type == TokenType.Identifier)
+				else if (Current is IdentifierToken identifierToken)
 				{
-					var current = new SingleTokenExpression(Current, SingleTokenExpressionType.Identifier);
+					var current = new SingleTokenExpression<IdentifierToken>(identifierToken, SingleTokenExpressionType.Identifier);
 					frame.Push(current);
 				}
 
 
-				if ((Next?.Type == TokenType.Operator && (Next as OperatorToken)?.Operator == Operator.Access)
+				if ((Next?.Type == TokenType.Operator && (Next as OperatorToken)?.Value == Operator.Access)
 						|| Next?.Type == TokenType.LeftSqBrace
 						|| Next?.Type == TokenType.LeftPar)
 				{
@@ -250,7 +269,7 @@ namespace JsTranspiler.Parsing
 				else
 				{
 					if (frame.Count == 2
-						&& frame.Last() is SingleTokenExpression stExp
+						&& frame.Last() is SingleTokenExpression<IdentifierToken> stExp
 						&& stExp.Type == SingleTokenExpressionType.Identifier
 						&& frame.First() is GroupExpression gExp)
 					{
@@ -258,8 +277,15 @@ namespace JsTranspiler.Parsing
 						{
 							Advance();
 							var methodBody = ParseConsumable(frame);
-							var f = new FunctionDefinitionExpression(Token.Method, stExp.Token, methodBody, gExp);
-							return f;
+							var argumentsExp = gExp
+								.Expressions
+								.Where(x => (x as SingleTokenExpression<OperatorToken>)?.Token?.Value != Operator.Comma);
+                            var funcDef = new FunctionDefinitionExpression(
+								DefinitionToken.Method, 
+								stExp.Token, 
+								methodBody, 
+								new GroupExpression(argumentsExp));
+							return funcDef;
 						}
 						else
 						{
@@ -280,37 +306,44 @@ namespace JsTranspiler.Parsing
 		{
 			var @operator = Current as OperatorToken;
 
-			if (@operator.Operator == Operator.Not)
+			if (@operator.Value == Operator.Not)
 			{
 				Advance();
 				var nextExpr = ParseNextExpression(frame);
-				return new UnaryExpression(nextExpr, @operator);
+				return new UnaryExpression<OperatorToken>(nextExpr, @operator);
 			}
-			else if (@operator.Operator == Operator.Comma)
+			else if (@operator.Value == Operator.Comma)
 			{
-				return new SingleTokenExpression(@operator, SingleTokenExpressionType.Operator);
+				return new SingleTokenExpression<OperatorToken>(@operator, SingleTokenExpressionType.Operator);
 			}
-			else if (@operator.Operator == Operator.Decrement
-				|| @operator.Operator == Operator.Increment)
+			else if (@operator.Value == Operator.Decrement
+				|| @operator.Value == Operator.Increment)
 			{
 				var arg = frame.Pop();
-				return new UnaryExpression(arg, @operator);
+				return new UnaryExpression<OperatorToken>(arg, @operator);
 			}
-
 			var arg1 = frame.Pop();
 			Advance();
 			var arg2 = ParseNextExpression(frame);
 
-			if (@operator.Operator == Operator.Ternary)
+			if (@operator.Value == Operator.Ternary)
 			{
 				Advance(); //to skip ":"
 				Advance();
 				var arg3 = ParseNextExpression(frame);
 
-				return new TernaryExpression(arg1, arg2, arg3, @operator);
+				return new TernaryExpression<OperatorToken>(arg1, arg2, arg3, @operator);
 			}
+            else if (@operator.Value == Operator.ArrowFunc)
+            {
+                var identifier = new IdentifierToken($"anonymous_{@operator.Value}_{Guid.NewGuid()}");
+				return new FunctionDefinitionExpression(DefinitionToken.Method,
+					identifier,
+					new GroupExpression(new[] { arg2 }),
+                    new GroupExpression(new[] { arg1 }));
+            }
 
-			return new BinaryExpression(arg1, arg2, @operator);
+            return new BinaryExpression<OperatorToken>(arg1, arg2, @operator);
 		}
 
 		private TokenType GetOppositeType(TokenType type)
@@ -333,20 +366,20 @@ namespace JsTranspiler.Parsing
 
 		private ITokenExpression ParseDefinition(ExpressionStack frame)
 		{
-			var definition = Current;
-			Token identifier;
-			if (Next.Type == TokenType.Identifier)
+			var definition = Current as DefinitionToken;
+            IdentifierToken identifier;
+			if (Next is IdentifierToken identifierToken)
 			{
 				Advance();
-				identifier = Current;
+				identifier = identifierToken;
 			}
 			else
 			{
-				identifier = new Token(TokenType.Identifier, $"anonymous_{definition.Value}_{Guid.NewGuid()}");
+				identifier = new IdentifierToken($"anonymous_{definition.Value}_{Guid.NewGuid()}");
 			}
 			Advance();
 
-			if (Current.Type == TokenType.Operator && Current.Value.Equals("="))
+			if (Current is OperatorToken opTok && opTok.Value == Operator.Assign)
 			{
 				Advance();
 			}
@@ -372,13 +405,16 @@ namespace JsTranspiler.Parsing
 					}
 					break;
 				case "function":
-					var arguments = ParseNextExpression(frame);
+					var argumentsList = (ParseNextExpression(frame) as GroupExpression)
+						.Expressions
+						.Where(x => (x as SingleTokenExpression<OperatorToken>)?.Token?.Value != Operator.Comma);
+					var arguments = new GroupExpression( argumentsList );
 					Advance();
 					var body = ParseNextExpression(frame);
 					return new FunctionDefinitionExpression(definition,
 						identifier,
 						body as ITokenExpressionContainer,
-						arguments as ITokenExpressionContainer);
+						arguments);
 				default:
 					break;
 			}

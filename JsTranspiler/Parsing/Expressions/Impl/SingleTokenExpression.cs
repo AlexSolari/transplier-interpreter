@@ -2,13 +2,15 @@
 
 namespace JsTranspiler.Parsing.Expressions.Impl
 {
-    public class SingleTokenExpression : ITokenExpression
+    public class SingleTokenExpression<TToken> : ITokenExpression, ISingleTokenExpression
+        where TToken : IToken
     {
-        public Token Token { get; set; }
+        public TToken Token { get; set; }
 
         public SingleTokenExpressionType Type { get; set; }
+        IToken ISingleTokenExpression.Token => Token;
 
-        public SingleTokenExpression(Token token, SingleTokenExpressionType type)
+        public SingleTokenExpression(TToken token, SingleTokenExpressionType type)
         {
             Token = token;
             Type = type;
@@ -16,7 +18,7 @@ namespace JsTranspiler.Parsing.Expressions.Impl
 
         public override string ToString()
         {
-            return Token.Value;
+            return Token.ToString();
         }
     }
 

@@ -1,81 +1,64 @@
 ﻿namespace JsTranspiler.Tokenizing.Tokens
 {
-    public class OperatorToken : Token
+    public class OperatorToken : Token<Operator>
     {
-        public Operator Operator { get; set; }
+        public string RawValue;
+        public OperatorToken(string value = "") : base(TokenType.Operator, GetOperator(value))
+        {
+            RawValue = value;
+        }
 
-        public OperatorToken(TokenType type, string value = "") : base(type, value)
+        public static Operator GetOperator(string value)
         {
             switch (value)
             {
                 case "+":
-                    Operator = Operator.Plus;
-                    break;
+                    return Operator.Plus;
                 case "-":
-                    Operator = Operator.Minus;
-                    break;
+                    return Operator.Minus;
                 case "*":
-                    Operator = Operator.Multiplication;
-                    break;
+                    return Operator.Multiplication;
                 case "/":
-                    Operator = Operator.Division;
-                    break;
+                    return Operator.Division;
                 case "%":
-                    Operator = Operator.WholeDivision;
-                    break;
+                    return Operator.WholeDivision;
                 case "=":
-                    Operator = Operator.Assign;
-                    break;
+                    return Operator.Assign;
                 case "==":
-                    Operator = Operator.Equals;
-                    break;
+                    return Operator.Equals;
                 case "!=":
-                    Operator = Operator.NotEquals;
-                    break;
+                    return Operator.NotEquals;
                 case ".":
-                    Operator = Operator.Access;
-                    break;
+                    return Operator.Access;
                 case ">":
-                    Operator = Operator.More;
-                    break;
+                    return Operator.More;
                 case ">=":
-                    Operator = Operator.MoreEquals;
-                    break;
+                    return Operator.MoreEquals;
                 case "<":
-                    Operator = Operator.Less;
-                    break;
+                    return Operator.Less;
                 case "<=":
-                    Operator = Operator.LessEquals;
-                    break;
+                    return Operator.LessEquals;
                 case ",":
-                    Operator = Operator.Comma;
-                    break;
+                    return Operator.Comma;
                 case "&&":
-                    Operator = Operator.And;
-                    break;
+                    return Operator.And;
                 case "||":
-                    Operator = Operator.Or;
-                    break;
+                    return Operator.Or;
                 case "!":
-                    Operator = Operator.Not;
-                    break;
+                    return Operator.Not;
                 case "=>":
-                    Operator = Operator.ArrowFunc;
-                    break;
+                    return Operator.ArrowFunc;
                 case ":":
-                    Operator = Operator.JsonAssign;
-                    break;
+                    return Operator.JsonAssign;
                 case "?":
-                    Operator = Operator.Ternary;
-                    break;
-				case "++":
-					Operator = Operator.Increment;
-					break;
-				case "--":
-					Operator = Operator.Decrement;
-					break;
-				default:
-                    break;
+                    return Operator.Ternary;
+                case "++":
+                    return Operator.Increment;
+                case "--":
+                    return Operator.Decrement;
+                default:
+                    return Operator.Unknown;
+
             }
         }
     }
@@ -103,6 +86,7 @@
         JsonAssign,
 		Ternary,
         Increment,
-        Decrement
+        Decrement,
+        Unknown
 	}
 }

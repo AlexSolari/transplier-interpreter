@@ -77,9 +77,9 @@ namespace JsTranspiler.Tokenizing
 
 		private bool isCollectingString = false;
 
-		public IEnumerable<Token> Tokenize(string data)
+		public IEnumerable<IToken> Tokenize(string data)
 		{
-			var result = new List<Token>();
+			var result = new List<IToken>();
 			var currentString = string.Empty;
 
 			for (int i = 0; i < data.Length; i++)
@@ -113,7 +113,7 @@ namespace JsTranspiler.Tokenizing
 				{
 					if (!char.IsNumber(peek))
 					{
-						result.Add(new Token(TokenType.Number, currentString));
+						result.Add(new NumberToken(currentString));
 						currentString = string.Empty;
 
 						continue;
@@ -127,7 +127,7 @@ namespace JsTranspiler.Tokenizing
 						? TokenType.LeftPar
 						: TokenType.RightPar;
 
-					result.Add(new Token(tokenType, currentString));
+					result.Add(new Token<string>(tokenType, currentString));
 					currentString = string.Empty;
 
 					continue;
@@ -140,7 +140,7 @@ namespace JsTranspiler.Tokenizing
 						? TokenType.LeftBrace
 						: TokenType.RightBrace;
 
-					result.Add(new Token(tokenType, currentString));
+					result.Add(new Token<string>(tokenType, currentString));
 					currentString = string.Empty;
 
 					continue;
@@ -153,7 +153,7 @@ namespace JsTranspiler.Tokenizing
 						? TokenType.LeftSqBrace
 						: TokenType.RightSqBrace;
 
-					result.Add(new Token(tokenType, currentString));
+					result.Add(new Token<string>(tokenType, currentString));
 					currentString = string.Empty;
 
 					continue;
@@ -164,7 +164,7 @@ namespace JsTranspiler.Tokenizing
 				{
 					if (isCollectingString)
 					{
-						result.Add(new Token(TokenType.StringData, string.Join("", currentString.SkipLast(1))));
+						result.Add(new Token<string>(TokenType.StringData, string.Join("", currentString.SkipLast(1))));
 						currentString = currentString.Last().ToString();
 					}
 
@@ -186,16 +186,23 @@ namespace JsTranspiler.Tokenizing
 					if (tokenType == TokenType.Keyword)
 					{
 						if (currentString.Equals("this")){
-							result.Add(new Token(TokenType.Identifier, currentString));
+							result.Add(new IdentifierToken(currentString));
 						}
 						else{
-							result.Add(new KeywordToken(tokenType, currentString));
+							result.Add(new KeywordToken(currentString));
 						}
 
 					}
 					else
 					{
-						result.Add(new Token(tokenType, currentString));
+						if (tokenType == TokenType.Definition)
+						{
+							result.Add(new DefinitionToken(currentString));
+						}
+						else
+						{
+                            result.Add(new IdentifierToken(currentString));
+                        }
 					}
 
 					currentString = string.Empty;
@@ -206,7 +213,7 @@ namespace JsTranspiler.Tokenizing
 				// Parse operators
 				if (isOperator(currentString))
 				{
-					result.Add(new OperatorToken(TokenType.Operator, currentString));
+					result.Add(new OperatorToken(currentString));
 					currentString = string.Empty;
 
 					continue;
@@ -218,7 +225,7 @@ namespace JsTranspiler.Tokenizing
 				{
 					if (currentString.Equals(";"))
 					{
-						result.Add(new Token(TokenType.EOL));
+						result.Add(new Token<string>(TokenType.EOL, string.Empty));
 					}
 					currentString = string.Empty;
 
@@ -226,7 +233,7 @@ namespace JsTranspiler.Tokenizing
 				}
 			}
 
-			var refinedResult = new List<Token>();
+			var refinedResult = new List<IToken>();
 			for (int i = 0; i < result.Count; i++)
 			{
 				var curr = result[i];
@@ -239,9 +246,9 @@ namespace JsTranspiler.Tokenizing
 
 				var peek = result[i + 1];
 
-				if (curr.Type == TokenType.Operator && peek.Type == TokenType.Operator)
+				if (curr is OperatorToken currOp && peek is OperatorToken peekOp)
 				{
-					refinedResult.Add(new OperatorToken(TokenType.Operator, curr.Value + peek.Value));
+					refinedResult.Add(new OperatorToken(currOp.RawValue + peekOp.RawValue));
 					i += 1;
 				}
 				else
@@ -250,8 +257,8 @@ namespace JsTranspiler.Tokenizing
 				}
 			}
 
-			refinedResult.Add(new Token(TokenType.EOL));
-			refinedResult.Add(new Token(TokenType.EOF));
+			refinedResult.Add(new Token<string>(TokenType.EOL, string.Empty));
+			refinedResult.Add(new Token<string>(TokenType.EOF, string.Empty));
 
 			return refinedResult;
 		}
