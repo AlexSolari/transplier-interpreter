@@ -198,7 +198,7 @@ namespace JsTranspiler.Tokenizing
 						}
 						else if (currentString.Equals("null"))
 						{
-							result.Add(new BooleanToken(false));
+							result.Add(new IdentifierToken(currentString));
 						}
 						else
 						{

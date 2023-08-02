@@ -7,7 +7,7 @@ if (10 + 20 > 15){
     return true;
 }
 
-if (foo.IsFixed()){
+if (foo){
     return false;
 } else {
     return 0;

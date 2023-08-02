@@ -3,7 +3,7 @@ using JsTranspiler.Interpreter;
 using JsTranspiler.Parsing;
 using JsTranspiler.Tokenizing;
 
-var path = ".\\TestData\\1.js";//Console.ReadLine();
+var path = ".\\TestData\\9.js";//Console.ReadLine();
 var tokenizer = new Tokenizer();
 
 var data = File.ReadAllText(path);

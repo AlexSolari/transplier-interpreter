@@ -22,7 +22,8 @@ namespace JsTranspiler.Interpreter
 		private readonly IdentifierToken exports = new IdentifierToken("exports");
 		private readonly IdentifierToken console = new IdentifierToken("console");
 		private readonly IdentifierToken log = new IdentifierToken("log");
-		private readonly IdentifierToken constructor = new IdentifierToken("constructor");
+        private readonly IdentifierToken error = new IdentifierToken("error");
+        private readonly IdentifierToken constructor = new IdentifierToken("constructor");
 
 		public Scope Global = new();
 
@@ -32,7 +33,14 @@ namespace JsTranspiler.Interpreter
             Global[console][log] = new HookFunctionDefinitionExpression(
                     new DefinitionToken("function"),
                     log,
-                    (string arg) => { Console.WriteLine(arg); },
+                    (string arg) => { Console.WriteLine($"[LOG]: {arg}"); },
+                    new GroupExpression(new[] {
+                        new IdentifierExpression(new IdentifierToken("arg"))
+                    })); 
+            Global[console][error] = new HookFunctionDefinitionExpression(
+                    new DefinitionToken("function"),
+                    error,
+                    (string arg) => { Console.WriteLine($"[ERROR]: {arg}"); },
                     new GroupExpression(new[] {
                         new IdentifierExpression(new IdentifierToken("arg"))
                     }));
@@ -74,24 +82,18 @@ namespace JsTranspiler.Interpreter
                     }
                     else
                     {
-                        var funcDef = Execute(definition.Value, scope);
+                        var funcDef = definition.Value is ObjectExpression
+                            ? definition.Value
+                            : definition.Value is InvokationExpression invExp
+                                ? ProcessInvokation(invExp, scope)
+                                : Execute(definition.Value, scope);
                         scope[definition.Identifier] = funcDef as IValueExpression;
                         result = funcDef;
                     }
                 } 
                 else if (instruction is GroupExpression group)
                 {
-                    var val = Execute(group, scope);
-
-                    if (val is GroupExpression ge
-                        && ge.Expressions.Count() == 1)
-                    {
-                        result = ge.Expressions.First();
-                    }
-                    else
-                    {
-                        result = val;
-                    }
+                    result = Execute(group, scope).Unwrap();
                 }
                 else if (instruction is InvokationExpression invokExp)
                 {
@@ -102,8 +104,7 @@ namespace JsTranspiler.Interpreter
                     switch (unKeywordExp.Operator.Value)
                     {
                         case Keyword.Return:
-                            result = Execute(unKeywordExp.Arg1, scope);
-                            break;
+                            return Execute(unKeywordExp.Arg1, scope);
 						case Keyword.New:
 							result = Execute(unKeywordExp.Arg1, scope);
 							break;
@@ -205,8 +206,16 @@ namespace JsTranspiler.Interpreter
                         case Operator.Comma:
                             break;
                         case Operator.And:
+                            var arg1Bool = ConditionIsTrue(Execute(binOpExpr.Arg1, scope));
+                            var arg2Bool = ConditionIsTrue(Execute(binOpExpr.Arg2, scope));
+
+                            result = new PrimitiveExpression<BooleanToken>(new BooleanToken(arg1Bool && arg2Bool));
                             break;
                         case Operator.Or:
+                            arg1Bool = ConditionIsTrue(Execute(binOpExpr.Arg1, scope));
+                            arg2Bool = ConditionIsTrue(Execute(binOpExpr.Arg2, scope));
+
+                            result = new PrimitiveExpression<BooleanToken>(new BooleanToken(arg1Bool || arg2Bool));
                             break;
                         case Operator.Increment:
                         case Operator.Decrement:
@@ -317,15 +326,43 @@ namespace JsTranspiler.Interpreter
 						methodScope[identifier] = item.Value;
                     }
 					methodScope = methodScope.MergeWith(scope);
-					var asdsd = ProcessInvokation(classInvExp, methodScope);
+					return ProcessInvokation(classInvExp, methodScope);
                 }
 
                 var bar = new BinaryExpression<OperatorToken>(foo, binOpExp.Arg2, new OperatorToken(Operator.Access));
 
                 return bar;
             }
+            else if (arg2 is IndexerExpression indexAccessExp)
+            {
+                return AccessByIndex(indexAccessExp, scope);
+            }
 
             throw new NotImplementedException();
+
+            ITokenExpression AccessByIndex(IndexerExpression indexAccessExp, Scope scope)
+            {
+                if (indexAccessExp.Container is IdentifierExpression identifierExpression)
+                {
+                    var arg2 = Execute(indexAccessExp.Expressions, scope) as IValueExpression;
+                    var obj = scope[identifierExpression.Token] as ObjectExpression;
+                    if (obj.Values.ContainsKey(arg2))
+                    {
+                        return obj[arg2];
+                    }
+                    return new NullExpression();
+                }
+                else if (indexAccessExp.Container is BinaryExpression<OperatorToken> bExp)
+                {
+                    return ProcessAccess(bExp, scope);
+                }
+                else if (indexAccessExp.Container is IndexerExpression innerIndexerExp)
+                {
+                    return AccessByIndex(innerIndexerExp, scope);
+                }
+
+                throw new NotImplementedException();
+            }
 		}
 
 		public ITokenExpression ProcessInvokation(InvokationExpression invokationExpression, Scope scope)
@@ -358,7 +395,7 @@ namespace JsTranspiler.Interpreter
                 .ToArray();
             scope.TryGetValue(targetMethodIdentifier, out var scopeMethodDefinition);
 
-            if (scopeMethodDefinition == null)
+            if (scopeMethodDefinition is not FunctionDefinitionExpression)
             {
                 if (scope.ContainsKey(targetMethodIdentifier))
                 {

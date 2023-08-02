@@ -474,11 +474,16 @@ namespace JsTranspiler.Parsing
 				case TokenType.LeftPar:
 					return new GroupExpression(normalizedContent);
 				case TokenType.LeftBrace:
-					var hasCommaOps = normalizedContent.Where(x => x is OperatorExpression).Any();
 					var hasBinExps = normalizedContent.Where(x => x is BinaryExpression<OperatorToken>).Any();
-					var allOperatorsAreCommas = normalizedContent.Where(x => x is OperatorExpression).Cast<OperatorExpression>().All(x => x.Token.Value == Operator.Comma);
-					var allBinExpsAreJsonAssign = normalizedContent.Where(x => x is BinaryExpression<OperatorToken>).Cast<BinaryExpression<OperatorToken>>().All(x => x.Operator.Value == Operator.JsonAssign);
-					if (hasCommaOps && hasBinExps && allOperatorsAreCommas && allBinExpsAreJsonAssign)
+					var allOperatorsAreCommas = normalizedContent
+						.Where(x => x is OperatorExpression)
+						.Cast<OperatorExpression>()
+						.All(x => x.Token.Value == Operator.Comma);
+					var allBinExpsAreJsonAssign = normalizedContent
+						.Where(x => x is BinaryExpression<OperatorToken>)
+						.Cast<BinaryExpression<OperatorToken>>()
+						.All(x => x.Operator.Value == Operator.JsonAssign);
+					if (hasBinExps && allOperatorsAreCommas && allBinExpsAreJsonAssign)
 					{
 						var res = new ObjectExpression();
 						foreach (var item in normalizedContent)
@@ -498,9 +503,20 @@ namespace JsTranspiler.Parsing
 
 					return new BlockExpression(normalizedContent);
 				case TokenType.LeftSqBrace:
-					return frame.Any() 
-						? new IndexerExpression(frame.Pop(), normalizedContent)
-						: new CollectionExpression(normalizedContent);
+                    var hasValExps = normalizedContent.Where(x => x is IValueExpression).Any();
+                    allOperatorsAreCommas = normalizedContent
+						.Where(x => x is OperatorExpression)
+						.Cast<OperatorExpression>()
+						.All(x => x.Token.Value == Operator.Comma);
+                    var allOtherAreVals = normalizedContent
+						.Where(x => x is not OperatorExpression)
+						.All(x => x is IValueExpression);
+                    if (hasValExps && allOperatorsAreCommas && allOtherAreVals)
+                    {
+                        return new CollectionExpression(normalizedContent.Where(x => x is not OperatorExpression));
+                    }
+
+                    return new IndexerExpression(frame.Pop(), normalizedContent);
 				default:
 					throw new InvalidDataException("Unexpected consumable start");
 			}

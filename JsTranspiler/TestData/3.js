@@ -1,7 +1,7 @@
 class Book {
     addBook() {}
     removeBook() {}
-    static getOneBook() {}
+    getOneBook() {}
 }
 
 module.exports = Book;

@@ -9,6 +9,9 @@ namespace JsTranspiler.Parsing.Expressions
 {
 	public interface IValueExpression : ITokenExpression
     {
+        static string AccessError => "{0} is not defined";
+        static string NullReferenceError => "Null reference error";
+
         public IValueExpression this[IValueExpression identifier]
         {
             get; set;

@@ -13,9 +13,16 @@ namespace JsTranspiler.Parsing.Expressions.Impl
 		{
 		}
 
-        public IValueExpression this[IValueExpression identifier] { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-        public IValueExpression this[IdentifierToken identifier] { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-
+        public IValueExpression this[IValueExpression identifier]
+        {
+            get => throw new InvalidOperationException(string.Format(IValueExpression.AccessError, identifier));
+            set => throw new InvalidOperationException(string.Format(IValueExpression.AccessError, identifier));
+        }
+        public IValueExpression this[IdentifierToken identifier]
+        {
+            get => throw new InvalidOperationException(string.Format(IValueExpression.AccessError, identifier));
+            set => throw new InvalidOperationException(string.Format(IValueExpression.AccessError, identifier));
+        }
         public override int GetHashCode()
         {
             return Token.GetHashCode();
