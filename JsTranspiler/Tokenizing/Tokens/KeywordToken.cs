@@ -6,7 +6,11 @@
         {
         }
 
-        public static Keyword GetKeyword(string value){
+		public KeywordToken(Keyword keyword) : base(TokenType.Keyword, keyword)
+		{
+		}
+
+		public static Keyword GetKeyword(string value){
             Enum.TryParse(value, ignoreCase: true, out Keyword keyword);
 
             return keyword;

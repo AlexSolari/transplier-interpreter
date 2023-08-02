@@ -3,3 +3,5 @@ var foo = (arg) => {
 };
 
 foo(15);
+
+module.exports = 50;

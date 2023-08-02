@@ -14,21 +14,32 @@ namespace JsTranspiler.Interpreter
 {
     public class Interpreter
     {
-        public Scope Global = new();
+        private readonly IdentifierToken module = new IdentifierToken("module");
+		private readonly IdentifierToken exports = new IdentifierToken("exports");
+		private readonly IdentifierToken console = new IdentifierToken("console");
+		private readonly IdentifierToken log = new IdentifierToken("log");
+		private readonly IdentifierToken constructor = new IdentifierToken("constructor");
+
+		public Scope Global = new();
 
         public Interpreter()
         {
-            Global.CompositeObjects.Add(new IdentifierToken("console"), new Dictionary<IdentifierToken, ITokenExpression>()
+            Global.CompositeObjects.Add(console, new Dictionary<IdentifierToken, ITokenExpression>()
             {
-                [new IdentifierToken("log")] = new HookFunctionDefinitionExpression(
+                [log] = new HookFunctionDefinitionExpression(
                     new DefinitionToken("function"),
-                    new IdentifierToken("log"),
+					log,
                     (string arg) => { Console.WriteLine(arg); },
                     new GroupExpression(new[] {
                         new SingleTokenExpression<IdentifierToken>(new IdentifierToken("arg"), SingleTokenExpressionType.Identifier)
                     }))
             });
-        }
+
+            Global.CompositeObjects.Add(module, new Dictionary<IdentifierToken, ITokenExpression>()
+            {
+                [exports] = new SingleTokenExpression<NumberToken>(new NumberToken(0), SingleTokenExpressionType.Constant)
+            });
+		}
 
         public ITokenExpression Execute(ITokenExpressionContainer expressionContainer, Scope scope)
         {
@@ -46,6 +57,16 @@ namespace JsTranspiler.Interpreter
                     {
                         scope.Add(definition.Identifier, functionDefinition);
                         result = functionDefinition;
+                    }
+                    else if (definition.Definition.Value.Equals("class"))
+                    {
+                        var classMethods = definition.Value.Expressions.Cast<DefinitionExpression>();
+                        scope.CompositeObjects[definition.Identifier] = new();
+                        foreach (var method in classMethods)
+                        {
+                            scope.CompositeObjects[definition.Identifier][method.Identifier] = method;
+                        }
+                        ;
                     }
                     else
                     {
@@ -77,6 +98,7 @@ namespace JsTranspiler.Interpreter
                     switch (unKeywordExp.Operator.Value)
                     {
                         case Keyword.Return:
+                        case Keyword.New:
                             result = Execute(unKeywordExp.Arg1 as ITokenExpressionContainer, scope);
                             break;
                         default:
@@ -132,13 +154,10 @@ namespace JsTranspiler.Interpreter
                         case Operator.NotEquals:
                             break;
                         case Operator.Assign:
-                            break;
+							ProcessAssignments(binOpExpr, scope);
+							break;
                         case Operator.Access:
-                            var arg1Token = (binOpExpr.Arg1 as SingleTokenExpression<IdentifierToken>).Token;
-                            var arg2Token = ((binOpExpr.Arg2 as InvokationExpression).Action as SingleTokenExpression<IdentifierToken>).Token;
-                            var globalScopeTarget = scope.CompositeObjects[arg1Token][arg2Token];
-                            var methodArgument = Execute((binOpExpr.Arg2 as InvokationExpression).Expressions, scope) as SingleTokenExpression<NumberToken>;
-                            (globalScopeTarget as HookFunctionDefinitionExpression).Hook(methodArgument.Token.Value.ToString());
+                            result = ProcessAccess(binOpExpr, scope);
                             break;
                         case Operator.More:
                             break;
@@ -181,15 +200,50 @@ namespace JsTranspiler.Interpreter
                 }
             }
 
-            return result;
+            return result ?? scope.CompositeObjects[module][exports];
         }
 
-        private ITokenExpressionContainer Containerize(ITokenExpression expression)
+		private ITokenExpressionContainer Containerize(ITokenExpression expression)
         {
             return new GroupExpression(new[] { expression });
-        }
+		}
 
-        public ITokenExpression ProcessInvokation(InvokationExpression invokationExpression, Scope scope)
+
+		private ITokenExpression Unwrap(ITokenExpression expression)
+		{
+            if (expression is GroupExpression gExp)
+            {
+                if (gExp.Expressions.Count() == 1)
+                    return Unwrap(gExp.Expressions.First());
+            }
+
+            return expression;
+		}
+
+		private ITokenExpression ProcessAccess(BinaryExpression<OperatorToken> binOpExpr, Scope scope)
+		{
+
+			var arg1Token = (Unwrap(binOpExpr.Arg1) as SingleTokenExpression<IdentifierToken>).Token;
+            var arg2 = Unwrap(binOpExpr.Arg2);
+            if (arg2 is SingleTokenExpression<IdentifierToken> steArg2)
+            {
+			    return scope.CompositeObjects[arg1Token][steArg2.Token];
+
+            }
+            else if (arg2 is InvokationExpression invExp) 
+            {
+				var arg2Token = ((binOpExpr.Arg2 as InvokationExpression).Action as SingleTokenExpression<IdentifierToken>).Token;
+				var methodDefinitionExpression = scope.CompositeObjects[arg1Token][arg2Token] as FunctionDefinitionExpression;
+				var methodScope = new Scope();
+				methodScope.Add(arg2Token, methodDefinitionExpression);
+				methodScope = methodScope.MergeWith(scope);
+				return ProcessInvokation(invExp, methodScope);
+			}
+
+            throw new NotImplementedException();
+		}
+
+		public ITokenExpression ProcessInvokation(InvokationExpression invokationExpression, Scope scope)
         {
             var targetMethodIdentifier = (invokationExpression.Action as SingleTokenExpression<IdentifierToken>).Token;
             var targetArgs = invokationExpression.Expressions
@@ -213,12 +267,24 @@ namespace JsTranspiler.Interpreter
                         throw new InvalidOperationException($"Identifier {x} is not defined");
                 })
                 .ToArray();
-            scope.TryGetValue(targetMethodIdentifier, out var userScopeMethodDefinition);
-            var userScopeMethodDefinitionExpression = userScopeMethodDefinition as FunctionDefinitionExpression;
-            var expectedArguments = userScopeMethodDefinitionExpression.Arguments.Expressions.Where(x => x is GroupExpression)
-                .Cast<GroupExpression>()
-                .Select(x => Execute(x, scope) as SingleTokenExpression<IdentifierToken>)
-                .Select(x => x.Token)
+            scope.TryGetValue(targetMethodIdentifier, out var scopeMethodDefinition);
+
+            if (scopeMethodDefinition == null)
+            {
+                if (scope.CompositeObjects.ContainsKey(targetMethodIdentifier))
+                {
+                    scopeMethodDefinition = scope.CompositeObjects[targetMethodIdentifier][constructor];
+                }
+                else
+                {
+                    throw new InvalidOperationException($"{targetMethodIdentifier} does not exist");
+                }
+            }
+
+            var scopeMethodDefinitionExpression = scopeMethodDefinition as FunctionDefinitionExpression;
+            var expectedArguments = scopeMethodDefinitionExpression.Arguments.Expressions
+                .Select(x => Unwrap(x))
+                .Select(x => (x as SingleTokenExpression<IdentifierToken>).Token)
                 .ToArray();
             var methodScope = new Scope();
             for (int i = 0; i < expectedArguments.Count(); i++)
@@ -229,7 +295,56 @@ namespace JsTranspiler.Interpreter
                 methodScope.Add(argIdentifier, argValue);
             }
             methodScope = methodScope.MergeWith(scope);
-            return Execute(userScopeMethodDefinitionExpression.Value, methodScope);
+
+			if (scopeMethodDefinitionExpression is HookFunctionDefinitionExpression hookFunctionExp)
+            {
+                var argExp = Unwrap(targetArgs[0]);
+                var arg = string.Empty;
+
+                if (argExp is SingleTokenExpression<Token<string>> stringSte)
+                {
+                    arg = stringSte.Token.Value;
+                }
+				else if(argExp is SingleTokenExpression<NumberToken> numberSte)
+
+				{
+                    arg = numberSte.Token.Value.ToString();
+                }
+
+				hookFunctionExp.Hook.Invoke(arg);
+
+                return new SingleTokenExpression<KeywordToken>(new KeywordToken(Keyword.Null), SingleTokenExpressionType.Constant);
+			}
+            else
+            {
+				return Execute(scopeMethodDefinitionExpression.Value, methodScope);
+            }
+
         }
-    }
+
+
+		private void ProcessAssignments(BinaryExpression<OperatorToken> binOpExpr, Scope scope)
+		{
+			IdentifierToken arg1Identifier;
+            var arg1 = Unwrap(binOpExpr.Arg1);
+			var arg2 = Unwrap(binOpExpr.Arg2);
+
+			if (arg1 is SingleTokenExpression<IdentifierToken> identifierSte)
+            {
+                arg1Identifier = identifierSte.Token;
+            }
+            else if (arg1 is BinaryExpression<OperatorToken> bOpExp)
+            {
+				var arg1Parent = (Unwrap(bOpExp.Arg1) as SingleTokenExpression<IdentifierToken>).Token;
+				var arg1Child = (Unwrap(bOpExp.Arg2) as SingleTokenExpression<IdentifierToken>).Token;
+
+                var wrappedArg = binOpExpr.Arg2 is ITokenExpressionContainer wArg2
+					? wArg2
+					: Containerize(binOpExpr.Arg2);
+
+				scope.CompositeObjects[arg1Parent][arg1Child] = Execute(wrappedArg, scope);
+            }
+		}
+
+	}
 }

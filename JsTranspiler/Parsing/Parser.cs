@@ -390,7 +390,6 @@ namespace JsTranspiler.Parsing
 			{
 				case "class":
 					value = ParseNextExpression(frame);
-					frame.Push(value);
 					break;
 				case "let":
 				case "const":
