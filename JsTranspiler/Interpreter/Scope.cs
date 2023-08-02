@@ -77,6 +77,10 @@ namespace JsTranspiler.Interpreter
             { 
                 return PrimitiveObjects[identifierToken]; 
             }
+            set
+            {
+                PrimitiveObjects[identifierToken] = value;
+            }
         }
     }
 }

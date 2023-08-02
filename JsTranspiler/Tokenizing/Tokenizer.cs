@@ -127,7 +127,7 @@ namespace JsTranspiler.Tokenizing
 						? TokenType.LeftPar
 						: TokenType.RightPar;
 
-					result.Add(new Token<string>(tokenType, currentString));
+					result.Add(new SyntaxToken(tokenType, currentString));
 					currentString = string.Empty;
 
 					continue;
@@ -140,7 +140,7 @@ namespace JsTranspiler.Tokenizing
 						? TokenType.LeftBrace
 						: TokenType.RightBrace;
 
-					result.Add(new Token<string>(tokenType, currentString));
+					result.Add(new SyntaxToken(tokenType, currentString));
 					currentString = string.Empty;
 
 					continue;
@@ -153,7 +153,7 @@ namespace JsTranspiler.Tokenizing
 						? TokenType.LeftSqBrace
 						: TokenType.RightSqBrace;
 
-					result.Add(new Token<string>(tokenType, currentString));
+					result.Add(new SyntaxToken(tokenType, currentString));
 					currentString = string.Empty;
 
 					continue;
@@ -164,7 +164,7 @@ namespace JsTranspiler.Tokenizing
 				{
 					if (isCollectingString)
 					{
-						result.Add(new Token<string>(TokenType.StringData, string.Join("", currentString.SkipLast(1))));
+						result.Add(new StringToken(string.Join("", currentString.SkipLast(1))));
 						currentString = currentString.Last().ToString();
 					}
 
@@ -188,7 +188,20 @@ namespace JsTranspiler.Tokenizing
 						if (currentString.Equals("this")){
 							result.Add(new IdentifierToken(currentString));
 						}
-						else{
+						else if (currentString.Equals("true"))
+						{
+							result.Add(new BooleanToken(true));
+						}
+						else if (currentString.Equals("this"))
+						{
+							result.Add(new BooleanToken(false));
+						}
+						else if (currentString.Equals("null"))
+						{
+							result.Add(new BooleanToken(false));
+						}
+						else
+						{
 							result.Add(new KeywordToken(currentString));
 						}
 
@@ -225,7 +238,7 @@ namespace JsTranspiler.Tokenizing
 				{
 					if (currentString.Equals(";"))
 					{
-						result.Add(new Token<string>(TokenType.EOL, string.Empty));
+						result.Add(new EmptyToken(TokenType.EOL));
 					}
 					currentString = string.Empty;
 
@@ -257,8 +270,8 @@ namespace JsTranspiler.Tokenizing
 				}
 			}
 
-			refinedResult.Add(new Token<string>(TokenType.EOL, string.Empty));
-			refinedResult.Add(new Token<string>(TokenType.EOF, string.Empty));
+			refinedResult.Add(new EmptyToken(TokenType.EOL));
+			refinedResult.Add(new EmptyToken(TokenType.EOF));
 
 			return refinedResult;
 		}

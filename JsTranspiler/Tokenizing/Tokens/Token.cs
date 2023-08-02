@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace JsTranspiler.Tokenizing.Tokens
 {
-    public class Token<TType> : IToken
+    public abstract class Token<TType> : IToken
     {
         public TokenType Type { get; set; }
 
@@ -64,6 +64,8 @@ namespace JsTranspiler.Tokenizing.Tokens
         StringData,
         LeftSqBrace,
         RightSqBrace,
-        Definition
-    }
+        Definition,
+		Boolean,
+		Null
+	}
 }

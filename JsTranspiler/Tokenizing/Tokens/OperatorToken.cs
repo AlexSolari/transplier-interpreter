@@ -6,9 +6,13 @@
         public OperatorToken(string value = "") : base(TokenType.Operator, GetOperator(value))
         {
             RawValue = value;
-        }
+		}
+		public OperatorToken(Operator value) : base(TokenType.Operator, value)
+		{
+			RawValue = null;
+		}
 
-        public static Operator GetOperator(string value)
+		public static Operator GetOperator(string value)
         {
             switch (value)
             {

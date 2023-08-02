@@ -7,6 +7,8 @@ class GameStore {
         this.gameFactories = {
 
         }
+
+        this.text = "test";
     }
 
     addGame(name, factory){
@@ -28,6 +30,12 @@ class GameStore {
             console.error(`Trying to get not-registered game [${name}]`);
         }
     }
+
+    alert() {
+        console.log(text);
+    }
 }
 
 module.exports = new GameStore();
+
+module.exports.alert();

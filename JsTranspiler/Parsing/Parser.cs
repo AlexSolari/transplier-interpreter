@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using JsTranspiler.Parsing.Expressions;
 using JsTranspiler.Parsing.Expressions.Impl;
 using JsTranspiler.Tokenizing.Tokens;
+using JsTranspiler.Utils;
 
 namespace JsTranspiler.Parsing
 {
@@ -57,6 +58,7 @@ namespace JsTranspiler.Parsing
 				case TokenType.StringData:
 				case TokenType.Number:
 				case TokenType.Keyword:
+				case TokenType.Boolean:
 					return ParseKeyword(frame);
 				case TokenType.Identifier:
 					return ParseIdentifier();
@@ -82,9 +84,9 @@ namespace JsTranspiler.Parsing
 				switch (Current.Type)
 				{
 					case TokenType.Number:
-                        return new SingleTokenExpression<NumberToken>(Current as NumberToken, SingleTokenExpressionType.Constant);
+                        return new PrimitiveExpression<NumberToken>(Current as NumberToken);
                     case TokenType.StringData:
-                        return new SingleTokenExpression<Token<string>>(Current as Token<string>, SingleTokenExpressionType.Constant);
+                        return new PrimitiveExpression<StringToken>(Current as StringToken);
                     default:
 						throw new InvalidDataException($"Invalid token type {Current.Type}");
 				}
@@ -192,6 +194,9 @@ namespace JsTranspiler.Parsing
 						new GroupExpression(cases),
 						new BlockExpression(normalizedContent),
 						keywordToken);
+				case Keyword.This:
+				case Keyword.Null:
+					throw new InvalidDataException($"Token {keywordToken} should not be a keyword, but an identifier");
 				case Keyword.Break:
 				case Keyword.Catch:
 				case Keyword.Continue:
@@ -204,19 +209,17 @@ namespace JsTranspiler.Parsing
 				case Keyword.For:
 				case Keyword.Import:
 				case Keyword.In:
-				case Keyword.Null:
 				case Keyword.Private:
 				case Keyword.Protected:
 				case Keyword.Public:
 				case Keyword.Super:
 				case Keyword.Static:
-				case Keyword.This:
 				case Keyword.Try:
 				case Keyword.True:
 				case Keyword.While:
 				case Keyword.With:
 				default:
-					return new SingleTokenExpression<KeywordToken>(keywordToken, SingleTokenExpressionType.Keyword);
+					return new KeywordExpression(keywordToken);
 			};
 
 			void AdvanceIfEOL()
@@ -254,7 +257,7 @@ namespace JsTranspiler.Parsing
 				}
 				else if (Current is IdentifierToken identifierToken)
 				{
-					var current = new SingleTokenExpression<IdentifierToken>(identifierToken, SingleTokenExpressionType.Identifier);
+					var current = new IdentifierExpression(identifierToken);
 					frame.Push(current);
 				}
 
@@ -314,7 +317,7 @@ namespace JsTranspiler.Parsing
 			}
 			else if (@operator.Value == Operator.Comma)
 			{
-				return new SingleTokenExpression<OperatorToken>(@operator, SingleTokenExpressionType.Operator);
+				return new OperatorExpression(@operator);
 			}
 			else if (@operator.Value == Operator.Decrement
 				|| @operator.Value == Operator.Increment)
@@ -469,6 +472,28 @@ namespace JsTranspiler.Parsing
 				case TokenType.LeftPar:
 					return new GroupExpression(normalizedContent);
 				case TokenType.LeftBrace:
+					var hasCommaOps = normalizedContent.Where(x => x is OperatorExpression).Any();
+					var hasBinExps = normalizedContent.Where(x => x is BinaryExpression<OperatorToken>).Any();
+					var allOperatorsAreCommas = normalizedContent.Where(x => x is OperatorExpression).Cast<OperatorExpression>().All(x => x.Token.Value == Operator.Comma);
+					var allBinExpsAreJsonAssign = normalizedContent.Where(x => x is BinaryExpression<OperatorToken>).Cast<BinaryExpression<OperatorToken>>().All(x => x.Operator.Value == Operator.JsonAssign);
+					if (hasCommaOps && hasBinExps && allOperatorsAreCommas && allBinExpsAreJsonAssign)
+					{
+						var res = new ObjectExpression();
+						foreach (var item in normalizedContent)
+						{
+							if (item is OperatorExpression)
+								continue;
+
+							var binExp = item as BinaryExpression<OperatorToken>;
+							var key = binExp.Arg1.Unwrap() as IValueExpression;
+							var value = binExp.Arg2.Unwrap() as IValueExpression;
+
+							res[key] = value;
+						}
+
+						return res;
+					}
+
 					return new BlockExpression(normalizedContent);
 				case TokenType.LeftSqBrace:
 					return frame.Any() 

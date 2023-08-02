@@ -2,7 +2,7 @@
 
 namespace JsTranspiler.Parsing.Expressions.Impl
 {
-    public class SingleTokenExpression<TToken> : ITokenExpression, ISingleTokenExpression
+    public abstract class SingleTokenExpression<TToken> : ITokenExpression, ISingleTokenExpression
         where TToken : IToken
     {
         public TToken Token { get; set; }

@@ -1,7 +1,7 @@
 ﻿namespace JsTranspiler.Parsing.Expressions.Impl
 {
-    public class CollectionExpression : ITokenExpression, ITokenExpressionContainer
-    {
+    public class CollectionExpression : ITokenExpression, ITokenExpressionContainer, IValueExpression
+	{
         public IEnumerable<ITokenExpression> Expressions { get; set; }
 
         public CollectionExpression(IEnumerable<ITokenExpression> expressions)
