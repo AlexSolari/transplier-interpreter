@@ -87,7 +87,9 @@ namespace JsTranspiler.Parsing
                         return new PrimitiveExpression<NumberToken>(Current as NumberToken);
                     case TokenType.StringData:
                         return new PrimitiveExpression<StringToken>(Current as StringToken);
-                    default:
+					case TokenType.Boolean:
+						return new PrimitiveExpression<BooleanToken>(Current as BooleanToken);
+					default:
 						throw new InvalidDataException($"Invalid token type {Current.Type}");
 				}
 			}
@@ -196,6 +198,8 @@ namespace JsTranspiler.Parsing
 						keywordToken);
 				case Keyword.This:
 				case Keyword.Null:
+				case Keyword.True:
+				case Keyword.False:
 					throw new InvalidDataException($"Token {keywordToken} should not be a keyword, but an identifier");
 				case Keyword.Break:
 				case Keyword.Catch:
@@ -204,7 +208,6 @@ namespace JsTranspiler.Parsing
 				case Keyword.Delete:
 				case Keyword.Else:
 				case Keyword.Export:
-				case Keyword.False:
 				case Keyword.Finally:
 				case Keyword.For:
 				case Keyword.Import:
@@ -215,7 +218,6 @@ namespace JsTranspiler.Parsing
 				case Keyword.Super:
 				case Keyword.Static:
 				case Keyword.Try:
-				case Keyword.True:
 				case Keyword.While:
 				case Keyword.With:
 				default:

@@ -38,4 +38,5 @@ class GameStore {
 
 module.exports = new GameStore();
 
-module.exports.alert();
+//module.exports.alert();
+module.exports.get("test", 69);

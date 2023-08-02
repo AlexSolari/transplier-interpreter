@@ -192,7 +192,7 @@ namespace JsTranspiler.Tokenizing
 						{
 							result.Add(new BooleanToken(true));
 						}
-						else if (currentString.Equals("this"))
+						else if (currentString.Equals("false"))
 						{
 							result.Add(new BooleanToken(false));
 						}

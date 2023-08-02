@@ -107,16 +107,31 @@ namespace JsTranspiler.Interpreter
                     switch (unKeywordExp.Operator.Value)
                     {
                         case Keyword.Return:
-                            result = Execute(unKeywordExp.Arg1 as ITokenExpressionContainer, scope);
+                            result = Execute(unKeywordExp.Arg1, scope);
                             break;
 						case Keyword.New:
-							result = Execute(unKeywordExp.Arg1 as ITokenExpressionContainer, scope);
+							result = Execute(unKeywordExp.Arg1, scope);
 							break;
 						default:
                             break;
                     }
                 }
-                else if (instruction is BinaryExpression<OperatorToken> binOpExpr)
+				else if (instruction is UnaryExpression<OperatorToken> unOpExp)
+				{
+					switch (unOpExp.Operator.Value)
+					{
+						case Operator.Not:
+							result = Execute(unOpExp.Arg1, scope);
+                            if (result is PrimitiveExpression<BooleanToken> boolRes)
+                            {
+                                result = new PrimitiveExpression<BooleanToken>(new BooleanToken(!boolRes.Token.Value));
+                            }
+							break;
+						default:
+							break;
+					}
+				}
+				else if (instruction is BinaryExpression<OperatorToken> binOpExpr)
                 {
                     switch (binOpExpr.Operator.Value)
                     {
@@ -151,9 +166,17 @@ namespace JsTranspiler.Interpreter
                             result = new PrimitiveExpression<NumberToken>(new NumberToken(arg1.Token.Value % arg2.Token.Value));
                             break;
                         case Operator.Equals:
-                            break;
+							arg1 = Execute(binOpExpr.Arg1, scope) as SingleTokenExpression<NumberToken>;
+							arg2 = Execute(binOpExpr.Arg2, scope) as SingleTokenExpression<NumberToken>;
+
+							result = new PrimitiveExpression<BooleanToken>(new BooleanToken(arg1.Token.Value == arg2.Token.Value));
+							break;
                         case Operator.NotEquals:
-                            break;
+							arg1 = Execute(binOpExpr.Arg1, scope) as SingleTokenExpression<NumberToken>;
+							arg2 = Execute(binOpExpr.Arg2, scope) as SingleTokenExpression<NumberToken>;
+
+							result = new PrimitiveExpression<BooleanToken>(new BooleanToken(arg1.Token.Value != arg2.Token.Value));
+							break;
                         case Operator.Assign:
 							ProcessAssignments(binOpExpr, scope);
 							break;
@@ -161,13 +184,29 @@ namespace JsTranspiler.Interpreter
                             result = ProcessAccess(binOpExpr, scope);
                             break;
                         case Operator.More:
-                            break;
+							arg1 = Execute(binOpExpr.Arg1, scope) as SingleTokenExpression<NumberToken>;
+							arg2 = Execute(binOpExpr.Arg2, scope) as SingleTokenExpression<NumberToken>;
+
+							result = new PrimitiveExpression<BooleanToken>(new BooleanToken(arg1.Token.Value > arg2.Token.Value));
+							break;
                         case Operator.MoreEquals:
-                            break;
+							arg1 = Execute(binOpExpr.Arg1, scope) as SingleTokenExpression<NumberToken>;
+							arg2 = Execute(binOpExpr.Arg2, scope) as SingleTokenExpression<NumberToken>;
+
+							result = new PrimitiveExpression<BooleanToken>(new BooleanToken(arg1.Token.Value >= arg2.Token.Value));
+							break;
                         case Operator.Less:
-                            break;
+							arg1 = Execute(binOpExpr.Arg1, scope) as SingleTokenExpression<NumberToken>;
+							arg2 = Execute(binOpExpr.Arg2, scope) as SingleTokenExpression<NumberToken>;
+
+							result = new PrimitiveExpression<BooleanToken>(new BooleanToken(arg1.Token.Value < arg2.Token.Value));
+							break;
                         case Operator.LessEquals:
-                            break;
+							arg1 = Execute(binOpExpr.Arg1, scope) as SingleTokenExpression<NumberToken>;
+							arg2 = Execute(binOpExpr.Arg2, scope) as SingleTokenExpression<NumberToken>;
+
+							result = new PrimitiveExpression<BooleanToken>(new BooleanToken(arg1.Token.Value <= arg2.Token.Value));
+							break;
                         case Operator.Comma:
                             break;
                         case Operator.And:
@@ -183,6 +222,33 @@ namespace JsTranspiler.Interpreter
                         case Operator.Unknown:
                         default:
                             throw new InvalidOperationException($"{binOpExpr.Operator.Value} cannot be used in binary expression {binOpExpr}");
+                    }
+                }
+                else if (instruction is BinaryExpression<KeywordToken> binKeywExpr)
+                {
+                    switch (binKeywExpr.Operator.Value)
+                    {
+                        case Keyword.Else:
+                            var ifExpr = binKeywExpr.Arg1.Unwrap() as BinaryExpression<KeywordToken>;
+                            var condition = Execute(ifExpr.Arg1, scope);
+                            if (ConditionIsTrue(condition))
+                            {
+                                result = Execute(ifExpr.Arg2, scope);
+                            }
+                            else
+                            {
+								result = Execute(binKeywExpr.Arg2, scope);
+							}
+                            break;
+                        case Keyword.If:
+							condition = Execute(binKeywExpr.Arg1, scope);
+							if (ConditionIsTrue(condition))
+							{
+								result = Execute(binKeywExpr.Arg2, scope);
+							}
+							break;
+                        default:
+                            break;
                     }
                 }
                 else if (instruction is IdentifierExpression identifierSteExp)
@@ -204,10 +270,24 @@ namespace JsTranspiler.Interpreter
             return result ?? new ObjectExpression();
         }
 
+		private bool ConditionIsTrue(ITokenExpression condition)
+		{
+			if (condition is PrimitiveExpression<BooleanToken> boolExp)
+            {
+                return boolExp.Token.Value;
+            }
+            else if (condition is not NullExpression)
+            {
+                return true;
+            }
+
+            return false;
+		}
+
 		private ITokenExpression ProcessAccess(BinaryExpression<OperatorToken> binOpExpr, Scope scope)
 		{
 
-			var arg1Token = ((binOpExpr.Arg1.Unwrap()) as SingleTokenExpression<IdentifierToken>).Token;
+			var arg1Token = ((binOpExpr.Arg1.Unwrap()) as IdentifierExpression).Token;
             var arg2 = binOpExpr.Arg2.Unwrap();
             if (arg2 is SingleTokenExpression<IdentifierToken> steArg2)
             {
@@ -273,8 +353,12 @@ namespace JsTranspiler.Interpreter
                         {
                             return new GroupExpression(new[] { new PrimitiveExpression<StringToken>(sX) });
                         }
+					    else if (x is BooleanToken bX)
+					    {
+						    return new GroupExpression(new[] { new PrimitiveExpression<BooleanToken>(bX) });
+					    }
 
-                        throw new InvalidOperationException($"Identifier {x} is not defined");
+					    throw new InvalidOperationException($"Identifier {x} is not defined");
                 })
                 .ToArray();
             scope.TryGetValue(targetMethodIdentifier, out var scopeMethodDefinition);
@@ -318,9 +402,12 @@ namespace JsTranspiler.Interpreter
                     arg = stringSte.Token.Value;
                 }
 				else if(argExp is PrimitiveExpression<NumberToken> numberSte)
-
 				{
                     arg = numberSte.Token.Value.ToString();
+                }
+                else if (argExp is PrimitiveExpression<BooleanToken> boolSte)
+                {
+                    arg = boolSte.Token.Value.ToString();
                 }
 
 				hookFunctionExp.Hook.Invoke(arg);

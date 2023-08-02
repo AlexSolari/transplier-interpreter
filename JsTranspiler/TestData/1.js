@@ -1,18 +1,10 @@
-function test() {
-    return 10;
-};
+var bar = 15;
+var foo = bar < 10;
 
-function summ(a, b) {
-    return a + b;
+if (foo) {
+    console.log(true);
+} else if (false) {
+    console.log("unreachable")
+} else {
+    console.log("nested")
 }
-
-var foo = 10;
-var bar = test() + 15;
-var baz = foo + bar;
-var zap = summ(bar, baz);
-
-console.log(50);
-console.log(foo);
-console.log(bar);
-console.log(baz);
-console.log(zap);
