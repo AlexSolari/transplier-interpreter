@@ -1,8 +1,13 @@
-﻿namespace JsTranspiler.Parsing.Expressions.Impl
+﻿using JsTranspiler.Tokenizing.Tokens;
+
+namespace JsTranspiler.Parsing.Expressions.Impl
 {
     public class CollectionExpression : ITokenExpression, ITokenExpressionContainer, IValueExpression
 	{
         public IEnumerable<ITokenExpression> Expressions { get; set; }
+
+        public IValueExpression this[IdentifierToken identifier] { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public IValueExpression this[IValueExpression identifier] { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
         public CollectionExpression(IEnumerable<ITokenExpression> expressions)
         {

@@ -28,21 +28,17 @@ namespace JsTranspiler.Interpreter
 
         public Interpreter()
         {
-            Global.CompositeObjects.Add(console, new Dictionary<IdentifierToken, ITokenExpression>()
-            {
-                [log] = new HookFunctionDefinitionExpression(
+            Global[console] = new ObjectExpression();
+            Global[console][log] = new HookFunctionDefinitionExpression(
                     new DefinitionToken("function"),
-					log,
+                    log,
                     (string arg) => { Console.WriteLine(arg); },
                     new GroupExpression(new[] {
                         new IdentifierExpression(new IdentifierToken("arg"))
-                    }))
-            });
+                    }));
 
-            Global.CompositeObjects.Add(module, new Dictionary<IdentifierToken, ITokenExpression>()
-            {
-                [exports] = new PrimitiveExpression<NumberToken>(new NumberToken(0))
-            });
+            Global[module] = new ObjectExpression();
+            Global[module][exports] = new NullExpression();
 		}
 
         public ITokenExpression Execute(ITokenExpression tokenExpression, Scope scope)
@@ -70,17 +66,16 @@ namespace JsTranspiler.Interpreter
                     else if (definition.Definition.Value.Equals("class"))
                     {
                         var classMethods = definition.Value.Expressions.Cast<DefinitionExpression>();
-                        scope.CompositeObjects[definition.Identifier] = new();
+                        scope[definition.Identifier] = new ObjectExpression();
                         foreach (var method in classMethods)
                         {
-                            scope.CompositeObjects[definition.Identifier][method.Identifier] = method;
+                            scope[definition.Identifier][method.Identifier] = method;
                         }
-                        ;
                     }
                     else
                     {
                         var funcDef = Execute(definition.Value, scope);
-                        scope.Add(definition.Identifier, funcDef);
+                        scope[definition.Identifier] = funcDef as IValueExpression;
                         result = funcDef;
                     }
                 } 
@@ -291,13 +286,13 @@ namespace JsTranspiler.Interpreter
             var arg2 = binOpExpr.Arg2.Unwrap();
             if (arg2 is SingleTokenExpression<IdentifierToken> steArg2)
             {
-			    return scope.CompositeObjects[arg1Token][steArg2.Token];
+			    return scope[arg1Token][steArg2.Token];
 
             }
             else if (arg2 is InvokationExpression invExp) 
             {
 				var arg2Token = ((binOpExpr.Arg2 as InvokationExpression).Action as IdentifierExpression).Token;
-				var methodDefinitionExpression = scope.CompositeObjects[arg1Token][arg2Token] as FunctionDefinitionExpression;
+				var methodDefinitionExpression = scope[arg1Token][arg2Token] as FunctionDefinitionExpression;
 				var methodScope = new Scope();
 				methodScope.Add(arg2Token, methodDefinitionExpression);
 				methodScope = methodScope.MergeWith(scope);
@@ -312,7 +307,7 @@ namespace JsTranspiler.Interpreter
                 if (binOpExp.Arg2 is InvokationExpression classInvExp)
                 {
                     var instance = foo as ObjectExpression;
-                    var classMethod = scope.CompositeObjects[instance.InstanceOf][(classInvExp.Action as IdentifierExpression).Token] as FunctionDefinitionExpression;
+                    var classMethod = scope[instance.InstanceOf][(classInvExp.Action as IdentifierExpression).Token] as FunctionDefinitionExpression;
 					var methodScope = new Scope();
 					methodScope.Add((classInvExp.Action as IdentifierExpression).Token, classMethod);
                     foreach (var item in instance.Values)
@@ -347,15 +342,15 @@ namespace JsTranspiler.Interpreter
                         }
                         else if (x is NumberToken nX)
                         {
-                            return new GroupExpression(new[] { new PrimitiveExpression<NumberToken>(nX) });
+                            return new PrimitiveExpression<NumberToken>(nX);
                         }
                         else if (x is StringToken sX)
                         {
-                            return new GroupExpression(new[] { new PrimitiveExpression<StringToken>(sX) });
+                            return new PrimitiveExpression<StringToken>(sX);
                         }
 					    else if (x is BooleanToken bX)
 					    {
-						    return new GroupExpression(new[] { new PrimitiveExpression<BooleanToken>(bX) });
+						    return new PrimitiveExpression<BooleanToken>(bX);
 					    }
 
 					    throw new InvalidOperationException($"Identifier {x} is not defined");
@@ -365,9 +360,9 @@ namespace JsTranspiler.Interpreter
 
             if (scopeMethodDefinition == null)
             {
-                if (scope.CompositeObjects.ContainsKey(targetMethodIdentifier))
+                if (scope.ContainsKey(targetMethodIdentifier))
                 {
-                    scopeMethodDefinition = scope.CompositeObjects[targetMethodIdentifier][constructor];
+                    scopeMethodDefinition = scope[targetMethodIdentifier][constructor];
                     IsInsideTheConstructor = true;
                     TempIdentifier = new IdentifierToken($"{targetMethodIdentifier}_constructor_{Guid.NewGuid()}");
                 }
@@ -458,7 +453,7 @@ namespace JsTranspiler.Interpreter
 				}
                 else
                 {
-    			    scope.CompositeObjects[arg1Parent][arg1Child] = Execute(binOpExpr.Arg2, scope);
+    			    scope[arg1Parent][arg1Child] = Execute(binOpExpr.Arg2, scope) as IValueExpression;
                 }
 
             }

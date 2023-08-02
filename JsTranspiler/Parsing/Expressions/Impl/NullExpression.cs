@@ -12,5 +12,8 @@ namespace JsTranspiler.Parsing.Expressions.Impl
 		public NullExpression() : base(new EmptyToken(TokenType.Null), SingleTokenExpressionType.Constant)
 		{
 		}
-	}
+
+        public IValueExpression this[IValueExpression identifier] { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public IValueExpression this[IdentifierToken identifier] { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+    }
 }

@@ -27,6 +27,18 @@ namespace JsTranspiler.Parsing.Expressions.Impl
 			}
 		}
 
-		public IEnumerable<ITokenExpression> Expressions => Values.Values;
+        public IValueExpression this[IdentifierToken identifier]
+        {
+            get
+            {
+                return Values[new IdentifierExpression(identifier)];
+            }
+            set
+            {
+                Values[new IdentifierExpression(identifier)] = value;
+            }
+        }
+
+        public IEnumerable<ITokenExpression> Expressions => Values.Values;
 	}
 }

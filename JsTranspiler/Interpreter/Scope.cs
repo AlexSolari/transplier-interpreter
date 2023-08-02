@@ -10,28 +10,21 @@ namespace JsTranspiler.Interpreter
 {
     public class Scope
     {
-        public Dictionary<IdentifierToken, ITokenExpression> PrimitiveObjects = new();
-        public Dictionary<IdentifierToken, Dictionary<IdentifierToken, ITokenExpression>> CompositeObjects = new();
+        public Dictionary<IdentifierToken, IValueExpression> PrimitiveObjects = new();
 
         public Scope()
         {
             
         }
 
-        public Scope(Dictionary<IdentifierToken, ITokenExpression> primitives, Dictionary<IdentifierToken, Dictionary<IdentifierToken, ITokenExpression>> composites)
+        public Scope(Dictionary<IdentifierToken, IValueExpression> primitives)
         {
             PrimitiveObjects = primitives;
-            CompositeObjects = composites;
         }
 
-        public void Add(IdentifierToken identifier, ITokenExpression value)
+        public void Add(IdentifierToken identifier, IValueExpression value)
         {
             PrimitiveObjects[identifier] = value;
-        }
-
-        public void Add(IdentifierToken identifier, Dictionary<IdentifierToken, ITokenExpression> value)
-        {
-            CompositeObjects[identifier] = value;
         }
 
         internal bool ContainsKey(IdentifierToken token)
@@ -39,7 +32,7 @@ namespace JsTranspiler.Interpreter
             return PrimitiveObjects.ContainsKey(token);
         }
 
-        internal void TryGetValue(IdentifierToken indentifier, out ITokenExpression value)
+        internal void TryGetValue(IdentifierToken indentifier, out IValueExpression value)
         {
             PrimitiveObjects.TryGetValue(indentifier, out value);
         }
@@ -58,20 +51,10 @@ namespace JsTranspiler.Interpreter
                     result.Add(key, scope.PrimitiveObjects[key]);
             }
 
-            foreach (var key in CompositeObjects.Keys)
-            {
-                result.Add(key, CompositeObjects[key]);
-            }
-            foreach (var key in scope.CompositeObjects.Keys)
-            {
-                if (!result.ContainsKey(key))
-                    result.Add(key, scope.CompositeObjects[key]);
-            }
-
             return result;
         }
 
-        public ITokenExpression this[IdentifierToken identifierToken]
+        public IValueExpression this[IdentifierToken identifierToken]
         {
             get 
             { 
